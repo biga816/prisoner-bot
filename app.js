@@ -98,7 +98,7 @@ function sendMessage(recipientId, message) {
 }
 
 function processMessage(event) {
-  var message = event.message;
+  var message = event.message.text;
   var senderId = event.sender.id;
 
   console.log("Received message from senderId: " + senderId);
