@@ -25,7 +25,7 @@ export default class WebhookController {
 
     // Facebook Webhook
     // Used for verification
-    router.get("/webhook", (req, res) => {
+    router.get("/webhook", (req, res, next) => {
       if (req.query["hub.verify_token"] === self.token) {
         console.log("Verified webhook");
         res.status(200).send(req.query["hub.challenge"]);
@@ -35,7 +35,7 @@ export default class WebhookController {
       }
     });
 
-    router.post("/webhook", (req, res) => {
+    router.post("/webhook", (req, res, next) => {
       let webhookService = new WebhookService(next);
 
       // Make sure this is a page subscription
