@@ -1,8 +1,11 @@
 const express = require("express");
 const request = require("request");
 const bodyParser = require("body-parser");
+const axios = require('axios');
 
 const token = process.env.VERIFICATION_TOKEN;
+const talkApiKey = process.env.talkApiKey;
+const taklApiUrl = 'https://api.apigw.smt.docomo.ne.jp/dialogue/v1/dialogue';
 
 const app = express();
 app.use(bodyParser.urlencoded({extended: false}));
@@ -74,7 +77,7 @@ function processPostback(event) {
         name = bodyObj.first_name;
         greeting = "Hi " + name + ". ";
       }
-      var message = greeting + "My name is SP Movie Bot. I can tell you various details regarding movies. What movie would you like to know about?";
+      var message = greeting + "私の名前はPrisoner Trainig Botです。宜しくお願いします。";
       sendMessage(senderId, {text: message});
     });
   }
@@ -104,5 +107,17 @@ function processMessage(event) {
   console.log("Received message from senderId: " + senderId);
   console.log("Message is: " + JSON.stringify(message));
 
-  sendMessage(senderId, {text: message});
+  var params = {
+      utt: message,
+      t: 20
+  };
+
+  axios.post(taklApiUrl + '?APIKEY=' + talkApiKey, params)
+  .then(function (response) {
+    sendMessage(senderId, {text: response.data.utt});
+  })
+  .catch(function (error) {
+      let rtnMsg = 'An error occurred.';
+      sendMessage(senderId, {text: response.data.utt});
+  });
 }
