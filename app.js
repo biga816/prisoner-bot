@@ -1,19 +1,9 @@
+// libs
 import express from 'express';
-import request from 'request';
 import bodyParser from 'body-parser';
-import axios from 'axios';
 import dotenv from 'dotenv';
 
-// const express = require("express");
-// const request = require("request");
-// const bodyParser = require("body-parser");
-// const axios = require('axios');
-// require('dotenv').config();
-
-dotenv.config();
-const token = process.env.VERIFICATION_TOKEN;
-const talkApiKey = process.env.TALK_API_KEY;
-const taklApiUrl = 'https://api.apigw.smt.docomo.ne.jp/dialogue/v1/dialogue';
+import routeConfig from './config/router';
 
 const app = express();
 
@@ -22,6 +12,7 @@ const app = express();
  */
 class REST {
   constructor() {
+    dotenv.config();
     this.configureExpress();
   }
 
@@ -30,122 +21,27 @@ class REST {
 
     app.use(bodyParser.urlencoded({extended: false}));
     app.use(bodyParser.json());
-    app.listen((process.env.PORT || 5000));
+
+    // route config
+    routeConfig(express.Router(), app);
     
-    if (!token) {
+    // server start
+    const port = process.env.PORT || 5000;
+    app.listen(port, () => {
+      console.log("All right ! I am alive at Port " + port + ".");
+    });
+    
+    if (!process.env.VERIFICATION_TOKEN) {
       console.log('Error: Specify token in environment');
       process.exit(1);
     }
 
     // Server index page
-    app.get("/", function (req, res) {
+    app.get("/",  (req, res) => {
       res.send("Deployed!");
     });
-
-    // Facebook Webhook
-    // Used for verification
-    app.get("/webhook", function (req, res) {
-      if (req.query["hub.verify_token"] === token) {
-        console.log("Verified webhook");
-        res.status(200).send(req.query["hub.challenge"]);
-      } else {
-        console.error("Verification failed. The tokens do not match.");
-        res.sendStatus(403);
-      }
-    });
-
-    app.post("/webhook", function (req, res) {
-      // Make sure this is a page subscription
-      if (req.body.object == "page") {
-        // Iterate over each entry
-        // There may be multiple entries if batched
-        req.body.entry.forEach(function(entry) {
-          // Iterate over each messaging event
-          entry.messaging.forEach(function(event) {
-            if (event.postback) {
-              self.processPostback(event);
-            } else if (event.message) {
-              self.processMessage(event);
-            }
-          });
-        });
-
-        res.sendStatus(200);
-      }
-    });
   }
 
-  processPostback(event) {
-    const self = this;
-
-    var senderId = event.sender.id;
-    var payload = event.postback.payload;
-  
-    if (payload === "Greeting") {
-      // Get user's first name from the User Profile API
-      // and include it in the greeting
-      request({
-        url: "https://graph.facebook.com/v2.6/" + senderId,
-        qs: {
-          access_token: process.env.PAGE_ACCESS_TOKEN,
-          fields: "first_name"
-        },
-        method: "GET"
-      }, function(error, response, body) {
-        var greeting = "";
-        if (error) {
-          console.log("Error getting user's name: " +  error);
-        } else {
-          var bodyObj = JSON.parse(body);
-          name = bodyObj.first_name;
-          greeting = "Hi " + name + ". ";
-        }
-        var message = greeting + "私の名前はPrisoner Trainig Botです。宜しくお願いします。";
-        self.sendMessage(senderId, {text: message});
-      });
-    }
-  }
-
-  // sends message to user
-  sendMessage(recipientId, message) {
-    request({
-      url: "https://graph.facebook.com/v2.6/me/messages",
-      qs: {access_token: process.env.PAGE_ACCESS_TOKEN},
-      method: "POST",
-      json: {
-        recipient: {id: recipientId},
-        message: message,
-      }
-    }, function(error, response, body) {
-      if (error) {
-        console.log("Error sending message: " + response.error);
-      }
-    });
-  }
-
-  processMessage(event) {
-    const self = this;
-
-    var message = event.message.text;
-    var senderId = event.sender.id;
-  
-    console.log("Received message from senderId: " + senderId);
-    console.log("Message is: " + JSON.stringify(message));
-  
-    var params = {
-        utt: message,
-        t: 20
-    };
-  
-    axios.post(taklApiUrl + '?APIKEY=' + talkApiKey, params)
-    .then(function (response) {
-      self.sendMessage(senderId, {text: response.data.utt});
-    })
-    .catch(function (error) {
-      let rtnMsg = 'An error occurred.';
-      self.sendMessage(senderId, {text: response.data.utt});
-    });
-  }
 }
 
 new REST();
