@@ -35,6 +35,7 @@ export default class WebhookController {
       }
     });
 
+    // All callbacks for Messenger
     router.post("/webhook", (req, res, next) => {
       let webhookService = new WebhookService(next);
 

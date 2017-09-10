@@ -1,6 +1,7 @@
 // libs
 import axios from 'axios';
-import request from 'request';
+
+import CONST from "./../utils/const";
 
 /**
  * Webhook Service
@@ -14,7 +15,7 @@ export default class WebhookService {
    */
   constructor(next) {
     this.talkApiKey = process.env.TALK_API_KEY;
-    this.taklApiUrl = 'https://api.apigw.smt.docomo.ne.jp/dialogue/v1/dialogue';  
+    this.accessToken = process.env.PAGE_ACCESS_TOKEN;
     this.next = next;
   }
 
@@ -25,30 +26,28 @@ export default class WebhookService {
   processPostback(event) {
     const self = this;
 
-    var senderId = event.sender.id;
-    var payload = event.postback.payload;
+    let senderId = event.sender.id;
+    let payload = event.postback.payload;
   
     if (payload === "Greeting") {
       // Get user's first name from the User Profile API
       // and include it in the greeting
-      request({
-        url: "https://graph.facebook.com/v2.6/" + senderId,
-        qs: {
-          access_token: process.env.PAGE_ACCESS_TOKEN,
-          fields: "first_name"
-        },
-        method: "GET"
-      }, (error, response, body) => {
-        var greeting = "";
-        if (error) {
-          console.log("Error getting user's name: " +  error);
-        } else {
-          var bodyObj = JSON.parse(body);
-          name = bodyObj.first_name;
-          greeting = "Hi " + name + ". ";
-        }
-        var message = greeting + "私の名前はPrisoner Trainig Botです。宜しくお願いします。";
+      let params = {
+        access_token: this.accessToken,
+        fields: 'first_name'
+      };
+      let greeting = '私の名前はPrisoner Trainig Botです。宜しくお願いします。';
+
+      axios.get(`${CONST.API.FACEBOOK}/${senderId}`, {params: params})
+      .then((response) => {
+        // let bodyObj = JSON.parse(body);
+        let name = response.data.first_name;
+        let message = "Hi " + name + ". " + greeting;
         self.sendMessage(senderId, {text: message});
+      })
+      .catch(error => {
+        console.log("Error getting user's name: " +  error);
+        self.sendMessage(senderId, {text: greeting});
       });
     }
   }
@@ -60,20 +59,22 @@ export default class WebhookService {
   processMessage(event) {
     const self = this;
 
-    var message = event.message.text;
-    var senderId = event.sender.id;
-  
-    console.log("Received message from senderId: " + senderId);
-    console.log("Message is: " + JSON.stringify(message));
-  
-    var params = {
-      utt: message,
-      t: 20
-    };
-  
-    axios.post(self.taklApiUrl + '?APIKEY=' + self.talkApiKey, params)
-      .then(response => self.sendMessage(senderId, {text: response.data.utt}))
-      .catch(error => self.sendMessage(senderId, {text: 'An error occurred.'}));
+    if (!event.message.is_echo) {
+      let message = event.message.text;
+      let senderId = event.sender.id;
+    
+      console.log("Received message from senderId: " + senderId);
+      console.log("Message is: " + JSON.stringify(message));
+    
+      let params = {
+        utt: message,
+        t: 20
+      };
+    
+      axios.post(`${CONST.API.TALK_API}?APIKEY=${self.talkApiKey}`, params)
+        .then(response => self.sendMessage(senderId, {text: response.data.utt}))
+        .catch(error => self.sendMessage(senderId, {text: 'An error occurred.'}));
+    }
   }
 
   /**
@@ -82,19 +83,13 @@ export default class WebhookService {
    * @param message message
    */
   sendMessage(recipientId, message) {
-    request({
-      url: "https://graph.facebook.com/v2.6/me/messages",
-      qs: {access_token: process.env.PAGE_ACCESS_TOKEN},
-      method: "POST",
-      json: {
-        recipient: {id: recipientId},
-        message: message,
-      }
-    }, (error, response, body) => {
-      if (error) {
-        console.log("Error sending message: " + response.error);
-      }
-    });
+    let params = {
+      recipient: {id: recipientId},
+      message: message,
+    };
+
+    axios.post(`${CONST.API.FACEBOOK_MESSAGE}?access_token=${this.accessToken}`, params)
+    .catch(error => console.log("Error sending message: " + error));
   }
 
 }
